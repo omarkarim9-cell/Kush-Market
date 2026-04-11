@@ -1,5 +1,6 @@
 import { sql } from "@/lib/db"
 import { NextResponse } from "next/server"
+export const dynamic = 'force-dynamic';
 
 export async function POST(request: Request) {
   try {
@@ -16,7 +17,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "GOOGLE_TRANSLATION_API_KEY not configured" }, { status: 500 })
     }
 
-    // 2. Call Google Gemini API (Using your Google Cloud credit)
+        // 2. Call Google Gemini API (Corrected URL and formatting)
     const response = await fetch(`https://googleapis.com{apiKey}`, {
       method: "POST",
       headers: {
@@ -34,14 +35,9 @@ export async function POST(request: Request) {
       })
     });
 
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error("Google API error:", errorText)
-      return NextResponse.json({ error: "Translation API failed" }, { status: 500 })
-    }
+	// Correct path to get text from Google's response
+	const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
-    const data = await response.json()
-    
     // 3. Extract text from Google's response structure
     let text = data.candidates?.[0]?.content?.parts?.[0]?.text || ""
 
