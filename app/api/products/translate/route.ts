@@ -10,38 +10,41 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Product id and name required" }, { status: 400 })
     }
 
-    // 1. Get Google API Key from Environment Variables
-    // Make sure this matches the key name you set in Vercel
     const apiKey = process.env.GOOGLE_TRANSLATION_API_KEY
     if (!apiKey) {
       return NextResponse.json({ error: "GOOGLE_TRANSLATION_API_KEY not configured" }, { status: 500 })
     }
 
-        // 2. Call Google Gemini API (Corrected URL and formatting)
-    const response = await fetch(`https://googleapis.com{apiKey}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{
-            text: `Translate the following product name and description to Arabic. Return ONLY a valid JSON object with keys "name_ar" and "description_ar". No explanation, no markdown code blocks, just the raw JSON object.
-
-            Product Name: ${name}
-            Description: ${description || "No description"}`
+    // ✅ Fixed URL with correct template literal and full endpoint
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        cache: "no-store",
+        body: JSON.stringify({
+          contents: [{
+            parts: [{
+              text: `Translate to Arabic. Return ONLY a valid JSON object with keys "name_ar" and "description_ar". No markdown, no explanation, just raw JSON.
+Product Name: ${name}
+Description: ${description || "No description"}`
+            }]
           }]
-        }]
-      })
-    });
+        })
+      }
+    )
 
-	// Correct path to get text from Google's response
-	const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    // ✅ Fixed: parse response before using it
+    const data = await response.json()
 
-    // 3. Extract text from Google's response structure
+    if (!response.ok) {
+      console.error("Gemini API error:", data)
+      return NextResponse.json({ error: data.error?.message || "Gemini API error" }, { status: 500 })
+    }
+
     let text = data.candidates?.[0]?.content?.parts?.[0]?.text || ""
 
-    // 4. Clean the output (remove markdown blocks if Gemini adds them)
+    // Clean markdown if Gemini adds it
     let clean = text.trim()
     if (clean.startsWith("```json")) {
       clean = clean.replace(/^```json\s*/, "").replace(/\s*```$/, "")
@@ -62,7 +65,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Translation missing name_ar" }, { status: 500 })
     }
 
-    // 5. Save to DB
+    // Save to DB
     const result = await sql`
       UPDATE products
       SET name_ar = ${translated.name_ar},
@@ -78,10 +81,11 @@ export async function POST(request: Request) {
       description_ar: translated.description_ar,
       product: result[0],
     })
+
   } catch (error) {
     console.error("Translation error:", error)
-    return NextResponse.json({ 
-      error: error instanceof Error ? error.message : "Translation failed" 
+    return NextResponse.json({
+      error: error instanceof Error ? error.message : "Translation failed"
     }, { status: 500 })
   }
 }
