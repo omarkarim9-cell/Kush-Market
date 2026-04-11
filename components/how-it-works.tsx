@@ -1,42 +1,26 @@
-import { SectionHeader } from "./section-header"
+"use client"
 
-const steps = [
-  {
-    number: 1,
-    title: "Choose & Order",
-    description: "Pick the product you want and fill in the order form below with your details.",
-  },
-  {
-    number: 2,
-    title: "Transfer Payment",
-    description: "Send the exact amount to our Wise or Bank of Khartoum account shown below.",
-  },
-  {
-    number: 3,
-    title: "Send Proof & Wait",
-    description: "WhatsApp us your transfer receipt. We verify and confirm your order within 24 hours.",
-  },
-]
+import { useLang } from "@/contexts/lang-context"
+import { t } from "@/lib/translations"
 
 export function HowItWorks() {
-  return (
-    <section className="mb-14">
-      <SectionHeader 
-        title="How It Works" 
-        subtitle="Simple 3-step ordering process — no account needed" 
-      />
+  const { lang } = useLang()
+  const tx = t[lang].how
 
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-5">
-        {steps.map((step) => (
-          <div
-            key={step.number}
-            className="bg-white border border-border rounded-xl px-5 py-7 text-center"
-          >
+  return (
+    <section id="how-it-works" className="mb-14">
+      <div style={{ width: 48, height: 3, background: "#C49A3C", borderRadius: 2, marginBottom: 10 }} />
+      <h2 className="font-serif text-navy mb-1.5" style={{ fontSize: 26, fontWeight: 600 }}>{tx.title}</h2>
+      <p className="text-muted-foreground text-sm mb-9">{tx.subtitle}</p>
+
+      <div className="grid gap-5" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
+        {tx.steps.map((step, i) => (
+          <div key={i} className="bg-white border border-border rounded-xl p-7 text-center">
             <div className="w-[42px] h-[42px] bg-navy text-gold2 font-serif text-lg font-semibold rounded-full flex items-center justify-center mx-auto mb-4">
-              {step.number}
+              {step.num}
             </div>
-            <h3 className="text-[15px] font-medium text-navy mb-1.5">{step.title}</h3>
-            <p className="text-[13px] text-muted-foreground leading-relaxed">{step.description}</p>
+            <h3 className="text-sm font-medium text-navy mb-1.5">{step.title}</h3>
+            <p className="text-xs text-muted-foreground leading-relaxed">{step.desc}</p>
           </div>
         ))}
       </div>
