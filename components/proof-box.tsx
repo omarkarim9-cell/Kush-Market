@@ -1,6 +1,17 @@
+"use client"
+
+import { useLang } from "@/contexts/lang-context"
+import { t } from "@/lib/translations"
+
 export function ProofBox() {
+  const { lang, isRTL } = useLang()
+  const tx = t[lang].proof
+
   return (
-    <div className="bg-navy rounded-[14px] px-9 py-8 flex items-start gap-5 mb-14 max-sm:flex-col">
+    <div 
+      className="bg-navy rounded-[14px] px-9 py-8 flex items-start gap-5 mb-14 max-sm:flex-col"
+      dir={isRTL ? "rtl" : "ltr"}
+    >
       <div className="w-12 h-12 bg-gold/20 rounded-xl flex items-center justify-center shrink-0">
         <svg
           width="24"
@@ -18,15 +29,14 @@ export function ProofBox() {
 
       <div>
         <h3 className="text-base font-medium text-white mb-1.5">
-          After Payment — Send Us Proof via WhatsApp
+          {tx.title}
         </h3>
         <p className="text-[13px] text-white/60 leading-relaxed">
-          Once you&apos;ve made the transfer, send a screenshot or receipt to our WhatsApp at{" "}
-          <a href="https://wa.me/971000000000" className="text-gold2 hover:underline">
-            +971 00 000 0000
-          </a>{" "}
-          along with your order details (name, product, quantity). We&apos;ll confirm and process your order
-          within 24 hours.
+          {tx.desc1}{" "}
+          <a href="https://wa.me/971501234567" className="text-gold2 hover:underline">
+            +971 50 123 4567
+          </a>
+          . {tx.desc2}
         </p>
       </div>
     </div>

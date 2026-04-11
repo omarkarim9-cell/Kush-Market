@@ -21,18 +21,22 @@ export default function ShopPage() {
     document.getElementById("order-form")?.scrollIntoView({ behavior: "smooth" })
   }
 
+  const handleOrderSubmit = () => {
+    setShowModal(true)
+  }
+
   return (
     <div className="min-h-screen bg-cream">
       <Navbar />
       <Hero />
-
+      
       <main className="max-w-[1100px] mx-auto px-8 py-14">
         <HowItWorks />
         <ProductsGrid onSelectProduct={handleSelectProduct} />
         <ShippingCalculator />
-        <OrderForm
-          selectedProduct={selectedProduct}
-          onSubmit={() => setShowModal(true)}
+        <OrderForm 
+          selectedProduct={selectedProduct} 
+          onSubmit={handleOrderSubmit} 
         />
         <PaymentDetails />
         <ProofBox />

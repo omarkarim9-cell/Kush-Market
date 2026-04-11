@@ -1,51 +1,21 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect } from "react"
 import { SectionHeader } from "./section-header"
 import { useLang } from "@/contexts/lang-context"
 import { t } from "@/lib/translations"
-
-interface OrderFormProps {
-  selectedProduct: string
-  onSubmit: () => void
-}
 
 interface Product {
   id: number
   name: string
   price: number
-  category: string
-  in_stock: boolean
+  name_ar?: string
 }
 
-const COUNTRIES = [
-  "United Arab Emirates", "Saudi Arabia", "Kuwait", "Qatar", "Bahrain", "Oman",
-  "Sudan", "Egypt", "Jordan", "Lebanon", "Iraq", "Syria", "Yemen", "Libya",
-  "Tunisia", "Algeria", "Morocco", "Palestine", "United Kingdom", "United States",
-  "Canada", "Australia", "Germany", "France", "Netherlands", "Sweden", "Norway",
-  "Denmark", "Switzerland", "Italy", "Spain", "Turkey", "Pakistan", "India",
-  "Bangladesh", "Sri Lanka", "Philippines", "Malaysia", "Indonesia", "Singapore",
-  "South Africa", "Kenya", "Nigeria", "Ethiopia", "Ghana", "Tanzania",
-  "China", "Japan", "South Korea", "Brazil", "Mexico", "Argentina",
-].sort()
-
-const PHONE_CODES = [
-  { code: "+971", flag: "🇦🇪", name: "UAE" },
-  { code: "+966", flag: "🇸🇦", name: "Saudi Arabia" },
-  { code: "+965", flag: "🇰🇼", name: "Kuwait" },
-  { code: "+974", flag: "🇶🇦", name: "Qatar" },
-  { code: "+973", flag: "🇧🇭", name: "Bahrain" },
-  { code: "+968", flag: "🇴🇲", name: "Oman" },
-  { code: "+249", flag: "🇸🇩", name: "Sudan" },
-  { code: "+20", flag: "🇪🇬", name: "Egypt" },
-  { code: "+962", flag: "🇯🇴", name: "Jordan" },
-  { code: "+44", flag: "🇬🇧", name: "UK" },
-  { code: "+1", flag: "🇺🇸", name: "US/Canada" },
-  { code: "+61", flag: "🇦🇺", name: "Australia" },
-  { code: "+49", flag: "🇩🇪", name: "Germany" },
-  { code: "+92", flag: "🇵🇰", name: "Pakistan" },
-  { code: "+91", flag: "🇮🇳", name: "India" },
-]
+interface OrderFormProps {
+  selectedProduct: string
+  onSubmit: () => void
+}
 
 export function OrderForm({ selectedProduct, onSubmit }: OrderFormProps) {
   const { lang, isRTL } = useLang()
@@ -53,68 +23,37 @@ export function OrderForm({ selectedProduct, onSubmit }: OrderFormProps) {
 
   const [products, setProducts] = useState<Product[]>([])
   const [formData, setFormData] = useState({
-    fullName: "", email: "", phoneCode: "+971", phone: "",
-    country: "", product: "", productPrice: 0,
-    quantity: 1, paymentMethod: "", city: "", notes: "",
+    fullName: "",
+    email: "",
+    phone: "",
+    country: "",
+    city: "",
+    product: "",
+    quantity: "1",
+    paymentMethod: "",
+    notes: "",
+    agreed: false,
   })
-
-  const [countrySearch, setCountrySearch] = useState("")
-  const [showCountryList, setShowCountryList] = useState(false)
-  const countryRef = useRef<HTMLDivElement>(null)
-
-  const [showPhoneCodes, setShowPhoneCodes] = useState(false)
-  const phoneRef = useRef<HTMLDivElement>(null)
-
   const [submitting, setSubmitting] = useState(false)
-  const [agreed, setAgreed] = useState(false)
 
   useEffect(() => {
     fetch("/api/products")
-      .then(r => r.json())
-      .then(data => setProducts(Array.isArray(data) ? data.filter((p: Product) => p.in_stock) : []))
+      .then((r) => r.json())
+      .then((data) => setProducts(Array.isArray(data) ? data : []))
+      .catch(() => {})
   }, [])
 
   useEffect(() => {
-    if (selectedProduct && products.length > 0) {
-      const name = selectedProduct.split(" (AED")[0]
-      const found = products.find(p => p.name === name)
-      if (found) {
-        setFormData(prev => ({ ...prev, product: found.name, productPrice: found.price }))
-      }
+    if (selectedProduct) {
+      setFormData((prev) => ({ ...prev, product: selectedProduct }))
     }
-  }, [selectedProduct, products])
+  }, [selectedProduct])
 
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (countryRef.current && !countryRef.current.contains(e.target as Node)) setShowCountryList(false)
-      if (phoneRef.current && !phoneRef.current.contains(e.target as Node)) setShowPhoneCodes(false)
-    }
-    document.addEventListener("mousedown", handleClick)
-    return () => document.removeEventListener("mousedown", handleClick)
-  }, [])
-
-  const filteredCountries = COUNTRIES.filter(c =>
-    c.toLowerCase().includes(countrySearch.toLowerCase())
-  )
-
-  const total = formData.productPrice * formData.quantity
-
-  function handleProductChange(e: React.ChangeEvent<HTMLSelectElement>) {
-    const selected = products.find(p => p.name === e.target.value)
-    setFormData(prev => ({
-      ...prev,
-      product: e.target.value,
-      productPrice: selected?.price ?? 0,
-    }))
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!formData.agreed) return
+
     setSubmitting(true)
-
-    const fullPhone = `${formData.phoneCode}${formData.phone}`
-    const deliveryAddress = `${formData.city}, ${formData.country}`
-
     try {
       await fetch("/api/orders", {
         method: "POST",
@@ -122,236 +61,260 @@ export function OrderForm({ selectedProduct, onSubmit }: OrderFormProps) {
         body: JSON.stringify({
           full_name: formData.fullName,
           email: formData.email,
-          phone: fullPhone,
+          phone: formData.phone,
           country: formData.country,
-          product_name: `${formData.product} (AED ${formData.productPrice})`,
-          quantity: formData.quantity,
+          city: formData.city,
+          product_name: formData.product,
+          quantity: parseInt(formData.quantity),
           payment_method: formData.paymentMethod,
-          delivery_address: deliveryAddress,
           notes: formData.notes,
         }),
       })
+      onSubmit()
+      
+      // Open WhatsApp
+      const message = encodeURIComponent(
+        `Hi! I just placed an order:\n\nName: ${formData.fullName}\nProduct: ${formData.product}\nQty: ${formData.quantity}\nPayment: ${formData.paymentMethod}\n\nPlease confirm my order.`
+      )
+      window.open(`https://wa.me/971501234567?text=${message}`, "_blank")
     } catch (err) {
-      console.error("Order save error:", err)
+      console.error(err)
     }
-
-    const msg =
-      `Hello, I'd like to place an order:\n\n` +
-      `*Name:* ${formData.fullName}\n` +
-      `*Email:* ${formData.email}\n` +
-      `*Phone:* ${fullPhone}\n` +
-      `*Country:* ${formData.country}\n` +
-      `*Product:* ${formData.product}\n` +
-      `*Quantity:* ${formData.quantity}\n` +
-      `*Total:* AED ${total}\n` +
-      `*Payment:* ${formData.paymentMethod}\n` +
-      `*Delivery to:* ${deliveryAddress}` +
-      (formData.notes ? `\n*Notes:* ${formData.notes}` : "")
-
-    window.open(`https://wa.me/971504207781?text=${encodeURIComponent(msg)}`, "_blank")
-
     setSubmitting(false)
-    onSubmit()
-
-    setFormData({
-      fullName: "", email: "", phoneCode: "+971", phone: "",
-      country: "", product: "", productPrice: 0,
-      quantity: 1, paymentMethod: "", city: "", notes: "",
-    })
-    setCountrySearch("")
-    setAgreed(false)
   }
 
-  const inputStyles = "w-full px-3.5 py-2.5 border border-border rounded-lg text-sm bg-cream text-foreground outline-none transition-colors focus:border-gold focus:bg-white"
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+  ) => {
+    const { name, value, type } = e.target
+    const checked = (e.target as HTMLInputElement).checked
+    setFormData((prev) => ({ 
+      ...prev, 
+      [name]: type === "checkbox" ? checked : value 
+    }))
+  }
+
+  const inputStyles =
+    "w-full px-3.5 py-2.5 border border-border rounded-lg text-sm bg-cream text-foreground outline-none transition-colors focus:border-gold focus:bg-white"
+
+  // Calculate subtotal
+  const selectedProd = products.find(p => {
+    const name = lang === "ar" && p.name_ar ? p.name_ar : p.name
+    return formData.product.includes(name)
+  })
+  const subtotal = selectedProd ? selectedProd.price * parseInt(formData.quantity || "1") : 0
 
   return (
-    <section id="order-form" className="mb-14">
+    <section id="order-form" className="mb-14" dir={isRTL ? "rtl" : "ltr"}>
       <SectionHeader title={tx.title} subtitle={tx.subtitle} />
 
-      <div className="bg-white border border-border rounded-2xl p-10 max-sm:p-6" dir={isRTL ? "rtl" : "ltr"}>
+      <div className="bg-white border border-border rounded-2xl p-10 max-sm:p-6">
         <form onSubmit={handleSubmit}>
           <div className="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
-
             {/* Full Name */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-[13px] font-medium text-navy">{tx.fullName}</label>
-              <input type="text" placeholder={tx.fullNamePlaceholder} required
+              <label htmlFor="fullName" className="text-[13px] font-medium text-navy">
+                {tx.fullName}
+              </label>
+              <input
+                type="text"
+                id="fullName"
+                name="fullName"
+                placeholder={tx.fullNamePlaceholder}
+                required
                 value={formData.fullName}
-                onChange={e => setFormData(p => ({ ...p, fullName: e.target.value }))}
-                className={inputStyles} />
+                onChange={handleChange}
+                className={inputStyles}
+              />
             </div>
 
             {/* Email */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-[13px] font-medium text-navy">{tx.email}</label>
-              <input type="email" placeholder={tx.emailPlaceholder} required
+              <label htmlFor="email" className="text-[13px] font-medium text-navy">
+                {tx.email}
+              </label>
+              <input
+                type="email"
+                id="email"
+                name="email"
+                placeholder={tx.emailPlaceholder}
+                required
                 value={formData.email}
-                onChange={e => setFormData(p => ({ ...p, email: e.target.value }))}
-                className={inputStyles} />
+                onChange={handleChange}
+                className={inputStyles}
+              />
             </div>
 
             {/* Phone */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-[13px] font-medium text-navy">{tx.phone}</label>
-              <div className="flex gap-2">
-                <div className="relative" ref={phoneRef}>
-                  <button type="button" onClick={() => setShowPhoneCodes(p => !p)}
-                    className="h-full px-3 border border-border rounded-lg text-sm bg-cream flex items-center gap-1.5 whitespace-nowrap hover:border-gold transition-colors">
-                    {PHONE_CODES.find(c => c.code === formData.phoneCode)?.flag} {formData.phoneCode} ▾
-                  </button>
-                  {showPhoneCodes && (
-                    <div className="absolute top-full left-0 mt-1 bg-white border border-border rounded-lg shadow-lg z-50 w-52 max-h-48 overflow-y-auto">
-                      {PHONE_CODES.map(c => (
-                        <button key={c.code} type="button"
-                          onClick={() => { setFormData(p => ({ ...p, phoneCode: c.code })); setShowPhoneCodes(false) }}
-                          className="w-full text-left px-3 py-2 text-sm hover:bg-cream flex items-center gap-2">
-                          <span>{c.flag}</span>
-                          <span className="text-navy">{c.name}</span>
-                          <span className="text-muted-foreground ml-auto">{c.code}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <input type="tel" placeholder={tx.phonePlaceholder} required
-                  value={formData.phone}
-                  onChange={e => setFormData(p => ({ ...p, phone: e.target.value }))}
-                  className={inputStyles} />
-              </div>
+              <label htmlFor="phone" className="text-[13px] font-medium text-navy">
+                {tx.phone}
+              </label>
+              <input
+                type="tel"
+                id="phone"
+                name="phone"
+                placeholder={tx.phonePlaceholder}
+                required
+                value={formData.phone}
+                onChange={handleChange}
+                className={inputStyles}
+              />
             </div>
 
             {/* Country */}
-            <div className="flex flex-col gap-1.5" ref={countryRef}>
-              <label className="text-[13px] font-medium text-navy">{tx.country}</label>
-              <div className="relative">
-                <input type="text" placeholder={tx.countryPlaceholder} autoComplete="off"
-                  value={countrySearch || formData.country}
-                  onFocus={() => { setShowCountryList(true); setCountrySearch("") }}
-                  onChange={e => { setCountrySearch(e.target.value); setShowCountryList(true) }}
-                  className={inputStyles} />
-                {showCountryList && (
-                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-border rounded-lg shadow-lg z-50 max-h-48 overflow-y-auto">
-                    {filteredCountries.length === 0 && (
-                      <div className="px-3 py-2 text-sm text-muted-foreground">{tx.noCountry}</div>
-                    )}
-                    {filteredCountries.map(c => (
-                      <button key={c} type="button"
-                        onClick={() => { setFormData(p => ({ ...p, country: c })); setCountrySearch(""); setShowCountryList(false) }}
-                        className="w-full text-left px-3 py-2 text-sm hover:bg-cream text-navy">
-                        {c}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <input type="text" required value={formData.country} onChange={() => {}} className="sr-only" />
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="country" className="text-[13px] font-medium text-navy">
+                {tx.country}
+              </label>
+              <input
+                type="text"
+                id="country"
+                name="country"
+                placeholder={tx.countryPlaceholder}
+                required
+                value={formData.country}
+                onChange={handleChange}
+                className={inputStyles}
+              />
+            </div>
+
+            {/* City */}
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="city" className="text-[13px] font-medium text-navy">
+                {tx.city}
+              </label>
+              <input
+                type="text"
+                id="city"
+                name="city"
+                placeholder={tx.cityPlaceholder}
+                required
+                value={formData.city}
+                onChange={handleChange}
+                className={inputStyles}
+              />
             </div>
 
             {/* Product */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-[13px] font-medium text-navy">{tx.product}</label>
-              <select required value={formData.product} onChange={handleProductChange} className={inputStyles}>
+              <label htmlFor="product" className="text-[13px] font-medium text-navy">
+                {tx.product}
+              </label>
+              <select
+                id="product"
+                name="product"
+                required
+                value={formData.product}
+                onChange={handleChange}
+                className={inputStyles}
+              >
                 <option value="">{tx.productPlaceholder}</option>
-                {products.map(p => (
-                  <option key={p.id} value={p.name}>{p.name} — AED {p.price}</option>
-                ))}
+                {products.map((p) => {
+                  const name = lang === "ar" && p.name_ar ? p.name_ar : p.name
+                  return (
+                    <option key={p.id} value={`${name} (AED ${p.price})`}>
+                      {name} — AED {p.price}
+                    </option>
+                  )
+                })}
               </select>
             </div>
 
             {/* Quantity */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-[13px] font-medium text-navy">{tx.quantity}</label>
-              <div className="flex items-center gap-3 border border-border rounded-lg bg-cream px-3.5 py-1.5">
-                <button type="button"
-                  onClick={() => setFormData(p => ({ ...p, quantity: Math.max(1, p.quantity - 1) }))}
-                  className="w-8 h-8 rounded-full bg-white border border-border text-navy font-medium text-lg flex items-center justify-center hover:border-gold transition-colors">−</button>
-                <span className="flex-1 text-center text-sm font-medium text-navy">{formData.quantity}</span>
-                <button type="button"
-                  onClick={() => setFormData(p => ({ ...p, quantity: Math.min(20, p.quantity + 1) }))}
-                  className="w-8 h-8 rounded-full bg-white border border-border text-navy font-medium text-lg flex items-center justify-center hover:border-gold transition-colors">+</button>
-              </div>
+              <label htmlFor="quantity" className="text-[13px] font-medium text-navy">
+                {tx.quantity}
+              </label>
+              <select
+                id="quantity"
+                name="quantity"
+                value={formData.quantity}
+                onChange={handleChange}
+                className={inputStyles}
+              >
+                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
+                  <option key={num} value={num}>
+                    {num}
+                  </option>
+                ))}
+              </select>
             </div>
 
             {/* Payment Method */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-[13px] font-medium text-navy">{tx.payment}</label>
-              <div className="flex gap-3">
-                {[
-                  { value: "Wise", label: tx.paymentWise, sub: tx.paymentWiseSub },
-                  { value: "Bank of Khartoum", label: tx.paymentBok, sub: tx.paymentBokSub },
-                ].map(opt => (
-                  <button key={opt.value} type="button"
-                    onClick={() => setFormData(p => ({ ...p, paymentMethod: opt.value }))}
-                    className="flex-1 py-2.5 px-3 border rounded-lg text-left transition-all"
-                    style={{
-                      borderColor: formData.paymentMethod === opt.value ? "#C49A3C" : "#E2DDD4",
-                      background: formData.paymentMethod === opt.value ? "#FFF8EC" : "#FAF7F2",
-                    }}>
-                    <div className="text-sm font-medium text-navy">{opt.label}</div>
-                    <div className="text-[11px] text-muted-foreground">{opt.sub}</div>
-                  </button>
-                ))}
-              </div>
-              <input type="text" required value={formData.paymentMethod} onChange={() => {}} className="sr-only" />
-            </div>
-
-            {/* City */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[13px] font-medium text-navy">{tx.city}</label>
-              <input type="text" placeholder={tx.cityPlaceholder} required
-                value={formData.city}
-                onChange={e => setFormData(p => ({ ...p, city: e.target.value }))}
-                className={inputStyles} />
+              <label htmlFor="paymentMethod" className="text-[13px] font-medium text-navy">
+                {tx.payment}
+              </label>
+              <select
+                id="paymentMethod"
+                name="paymentMethod"
+                required
+                value={formData.paymentMethod}
+                onChange={handleChange}
+                className={inputStyles}
+              >
+                <option value="">—</option>
+                <option value="Wise">{tx.paymentWise} ({tx.paymentWiseSub})</option>
+                <option value="Bank of Khartoum">{tx.paymentBok} ({tx.paymentBokSub})</option>
+              </select>
             </div>
 
             {/* Notes */}
             <div className="flex flex-col gap-1.5 col-span-2 max-sm:col-span-1">
-              <label className="text-[13px] font-medium text-navy">
+              <label htmlFor="notes" className="text-[13px] font-medium text-navy">
                 {tx.notes} <span className="text-muted-foreground font-normal">{tx.notesOptional}</span>
               </label>
-              <textarea placeholder={tx.notesPlaceholder}
+              <textarea
+                id="notes"
+                name="notes"
+                placeholder={tx.notesPlaceholder}
                 value={formData.notes}
-                onChange={e => setFormData(p => ({ ...p, notes: e.target.value }))}
-                className={`${inputStyles} resize-y min-h-[80px]`} />
+                onChange={handleChange}
+                className={`${inputStyles} resize-y min-h-[90px]`}
+              />
             </div>
           </div>
 
-          {/* Order Summary */}
-          {formData.product && (
-            <div className="mt-5 bg-cream border border-border rounded-xl px-5 py-4">
-              <div className="flex items-center justify-between mb-2">
-                <div>
-                  <div className="text-[13px] text-muted-foreground">{tx.subtotal}</div>
-                  <div className="text-[15px] font-medium text-navy">{formData.product} × {formData.quantity}</div>
-                </div>
-                <div className="text-2xl font-semibold text-navy">AED {total.toFixed(2)}</div>
+          {/* Subtotal */}
+          {subtotal > 0 && (
+            <div className="mt-5 p-4 bg-[#FAF7F2] rounded-lg">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-[#6B7280]">{tx.subtotal}</span>
+                <span className="text-lg font-semibold text-[#0B1D3A]">AED {subtotal}</span>
               </div>
-              <div className="flex items-start gap-2 border-t border-border pt-3 mt-1">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C49A3C" strokeWidth="2" className="mt-0.5 flex-shrink-0"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
-                <p className="text-[12px] text-muted-foreground leading-relaxed">
-                  <span className="font-medium text-navy">{tx.shippingNote}</span> {tx.shippingNoteDesc}
-                </p>
-              </div>
+              <p className="text-xs text-[#9CA3AF] mt-1">
+                {tx.shippingNote} {tx.shippingNoteDesc}
+              </p>
             </div>
           )}
 
           {/* Terms */}
-          <label className="flex items-start gap-2.5 mt-4 cursor-pointer">
-            <input type="checkbox" required checked={agreed}
-              onChange={e => setAgreed(e.target.checked)}
-              className="mt-0.5 accent-gold" />
-            <span className="text-[12px] text-muted-foreground leading-relaxed">
+          <label className="flex items-start gap-3 mt-5 cursor-pointer">
+            <input
+              type="checkbox"
+              name="agreed"
+              checked={formData.agreed}
+              onChange={handleChange}
+              required
+              className="w-4 h-4 mt-0.5"
+            />
+            <span className="text-xs text-[#6B7280]">
               {tx.terms}{" "}
-              <a href="/terms" target="_blank" className="text-gold underline hover:text-gold2">{tx.termsLink}</a>
+              <a href="#" className="text-[#C49A3C] hover:underline">{tx.termsLink}</a>
               {tx.termsRest}
             </span>
           </label>
 
-          <button type="submit" disabled={submitting || !agreed}
-            className="w-full mt-4 bg-gold text-navy py-3.5 px-8 rounded-lg text-[15px] font-medium transition-all hover:bg-gold2 disabled:opacity-40 disabled:cursor-not-allowed">
+          <button
+            type="submit"
+            disabled={submitting || !formData.agreed}
+            className="w-full mt-5 bg-gold text-navy py-3.5 px-8 rounded-lg text-[15px] font-medium transition-colors hover:bg-gold2 disabled:opacity-50"
+          >
             {submitting ? tx.submitting : tx.submit}
           </button>
-          <p className="text-center text-[12px] text-muted-foreground mt-2">{tx.hint}</p>
+
+          <p className="text-center text-xs text-[#9CA3AF] mt-3">{tx.hint}</p>
         </form>
       </div>
     </section>

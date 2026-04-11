@@ -10,8 +10,6 @@ interface Product {
   image_url: string
   category: string
   in_stock: boolean
-  name_ar?: string
-  description_ar?: string
 }
 
 interface Order {
@@ -27,7 +25,10 @@ interface Order {
   created_at: string
 }
 
-const emptyProduct = { name: "", description: "", price: 0, image_url: "", category: "", in_stock: true }
+const emptyProduct = {
+  name: "", description: "", price: 0,
+  image_url: "", category: "", in_stock: true,
+}
 
 export default function AdminPage() {
   const [tab, setTab] = useState<"products" | "orders">("products")
@@ -39,7 +40,6 @@ export default function AdminPage() {
   const [form, setForm] = useState(emptyProduct)
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState("")
-  const [translating, setTranslating] = useState<number | null>(null)
 
   useEffect(() => { fetchAll() }, [])
 
@@ -54,7 +54,12 @@ export default function AdminPage() {
     setLoading(false)
   }
 
-  function openAdd() { setEditProduct(null); setForm(emptyProduct); setShowForm(true) }
+  function openAdd() {
+    setEditProduct(null)
+    setForm(emptyProduct)
+    setShowForm(true)
+  }
+
   function openEdit(p: Product) {
     setEditProduct(p)
     setForm({ name: p.name, description: p.description, price: p.price, image_url: p.image_url || "", category: p.category || "", in_stock: p.in_stock })
@@ -66,8 +71,13 @@ export default function AdminPage() {
     const url = editProduct ? `/api/products/${editProduct.id}` : "/api/products"
     const method = editProduct ? "PUT" : "POST"
     const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) })
-    if (res.ok) { setMsg(editProduct ? "Product updated!" : "Product added!"); setShowForm(false); fetchAll() }
-    else setMsg("Error saving product.")
+    if (res.ok) {
+      setMsg(editProduct ? "Product updated!" : "Product added!")
+      setShowForm(false)
+      fetchAll()
+    } else {
+      setMsg("Error saving product.")
+    }
     setSaving(false)
     setTimeout(() => setMsg(""), 3000)
   }
@@ -78,23 +88,16 @@ export default function AdminPage() {
     fetchAll()
   }
 
-  async function translateProduct(p: Product) {
-    setTranslating(p.id)
-    try {
-      const res = await fetch("/api/products/translate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: p.id, name: p.name, description: p.description }),
-      })
-      if (res.ok) { setMsg(`✓ "${p.name}" translated to Arabic!`); fetchAll() }
-      else setMsg("Translation failed. Check ANTHROPIC_API_KEY in Vercel env vars.")
-    } catch { setMsg("Translation error.") }
-    setTranslating(null)
-    setTimeout(() => setMsg(""), 4000)
+  async function updateOrderStatus(id: number, status: string) {
+    await fetch(`/api/orders`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, status }) })
+    fetchAll()
   }
+
+  const inputClass = "w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-yellow-500 bg-gray-50"
 
   return (
     <div style={{ minHeight: "100vh", background: "#FAF7F2", fontFamily: "DM Sans, sans-serif" }}>
+      {/* Header */}
       <div style={{ background: "#0B1D3A", padding: "0 2rem", display: "flex", alignItems: "center", justifyContent: "space-between", height: 64 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <img src="https://kush-edu.com/wp-content/uploads/2025/07/Ad-Kush-logo.jpg" alt="Kush" style={{ height: 36, borderRadius: 4 }} onError={(e) => (e.currentTarget.style.display = "none")} />
@@ -103,7 +106,9 @@ export default function AdminPage() {
         <a href="/" style={{ color: "rgba(255,255,255,0.6)", fontSize: 13, textDecoration: "none" }}>← Back to Shop</a>
       </div>
 
-      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "2rem" }}>
+      <div style={{ maxWidth: 1000, margin: "0 auto", padding: "2rem" }}>
+
+        {/* Tabs */}
         <div style={{ display: "flex", gap: 8, marginBottom: 24 }}>
           {(["products", "orders"] as const).map(t => (
             <button key={t} onClick={() => setTab(t)} style={{ padding: "8px 24px", borderRadius: 8, border: "1px solid #E2DDD4", background: tab === t ? "#0B1D3A" : "#fff", color: tab === t ? "#E0B84A" : "#6B7280", fontWeight: 500, fontSize: 14, cursor: "pointer", textTransform: "capitalize" }}>
@@ -114,13 +119,18 @@ export default function AdminPage() {
 
         {msg && <div style={{ background: "#ECFDF5", border: "1px solid #6EE7B7", borderRadius: 8, padding: "10px 16px", marginBottom: 16, color: "#065F46", fontSize: 14 }}>{msg}</div>}
 
-        {loading ? <div style={{ textAlign: "center", padding: "3rem", color: "#6B7280" }}>Loading...</div>
-        : tab === "products" ? (
+        {loading ? (
+          <div style={{ textAlign: "center", padding: "3rem", color: "#6B7280" }}>Loading...</div>
+        ) : tab === "products" ? (
           <>
+            {/* Add Product Button */}
             <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
-              <button onClick={openAdd} style={{ background: "#C49A3C", color: "#0B1D3A", border: "none", padding: "10px 20px", borderRadius: 8, fontSize: 14, fontWeight: 500, cursor: "pointer" }}>+ Add Product</button>
+              <button onClick={openAdd} style={{ background: "#C49A3C", color: "#0B1D3A", border: "none", padding: "10px 20px", borderRadius: 8, fontSize: 14, fontWeight: 500, cursor: "pointer" }}>
+                + Add Product
+              </button>
             </div>
 
+            {/* Product Form Modal */}
             {showForm && (
               <div style={{ position: "fixed", inset: 0, background: "rgba(11,29,58,0.5)", zIndex: 999, display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem" }}>
                 <div style={{ background: "#fff", borderRadius: 16, padding: 32, width: "100%", maxWidth: 500 }}>
@@ -135,10 +145,13 @@ export default function AdminPage() {
                     ].map(field => (
                       <div key={field.key}>
                         <label style={{ fontSize: 12, fontWeight: 500, color: "#0B1D3A", display: "block", marginBottom: 4 }}>{field.label}</label>
-                        <input type={field.type} placeholder={field.placeholder}
+                        <input
+                          type={field.type}
+                          placeholder={field.placeholder}
                           value={(form as any)[field.key]}
                           onChange={e => setForm(f => ({ ...f, [field.key]: field.type === "number" ? parseFloat(e.target.value) : e.target.value }))}
-                          style={{ width: "100%", border: "1px solid #E2DDD4", borderRadius: 8, padding: "8px 12px", fontSize: 14, outline: "none", background: "#FAF7F2", boxSizing: "border-box" }} />
+                          style={{ width: "100%", border: "1px solid #E2DDD4", borderRadius: 8, padding: "8px 12px", fontSize: 14, outline: "none", background: "#FAF7F2", boxSizing: "border-box" }}
+                        />
                       </div>
                     ))}
                     <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#0B1D3A", cursor: "pointer" }}>
@@ -156,12 +169,12 @@ export default function AdminPage() {
               </div>
             )}
 
+            {/* Products Table */}
             <div style={{ background: "#fff", border: "1px solid #E2DDD4", borderRadius: 14, overflow: "hidden" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
                 <thead>
                   <tr style={{ background: "#0B1D3A", color: "#E0B84A" }}>
-                    <th style={{ padding: "12px 16px", textAlign: "left", fontWeight: 500 }}>Name (EN)</th>
-                    <th style={{ padding: "12px 16px", textAlign: "right", fontWeight: 500 }}>الاسم (AR)</th>
+                    <th style={{ padding: "12px 16px", textAlign: "left", fontWeight: 500 }}>Name</th>
                     <th style={{ padding: "12px 16px", textAlign: "left", fontWeight: 500 }}>Category</th>
                     <th style={{ padding: "12px 16px", textAlign: "right", fontWeight: 500 }}>Price</th>
                     <th style={{ padding: "12px 16px", textAlign: "center", fontWeight: 500 }}>Stock</th>
@@ -173,17 +186,7 @@ export default function AdminPage() {
                     <tr key={p.id} style={{ borderTop: "1px solid #F4F1EB", background: i % 2 === 0 ? "#fff" : "#FAF7F2" }}>
                       <td style={{ padding: "12px 16px", color: "#0B1D3A", fontWeight: 500 }}>
                         {p.name}
-                        <div style={{ fontSize: 12, color: "#6B7280", fontWeight: 400 }}>{p.description?.substring(0, 45)}...</div>
-                      </td>
-                      <td style={{ padding: "12px 16px", textAlign: "right" }}>
-                        {p.name_ar ? (
-                          <div dir="rtl">
-                            <div style={{ fontSize: 13, color: "#0B1D3A" }}>{p.name_ar}</div>
-                            <div style={{ fontSize: 11, color: "#6B7280" }}>{p.description_ar?.substring(0, 35)}...</div>
-                          </div>
-                        ) : (
-                          <span style={{ fontSize: 12, color: "#9CA3AF", fontStyle: "italic" }}>Not translated</span>
-                        )}
+                        <div style={{ fontSize: 12, color: "#6B7280", fontWeight: 400 }}>{p.description?.substring(0, 50)}...</div>
                       </td>
                       <td style={{ padding: "12px 16px", color: "#6B7280" }}>{p.category || "—"}</td>
                       <td style={{ padding: "12px 16px", textAlign: "right", color: "#0B1D3A", fontWeight: 500 }}>AED {p.price}</td>
@@ -193,25 +196,22 @@ export default function AdminPage() {
                         </span>
                       </td>
                       <td style={{ padding: "12px 16px", textAlign: "center" }}>
-                        <div style={{ display: "flex", gap: 6, justifyContent: "center", flexWrap: "wrap" }}>
-                          <button onClick={() => openEdit(p)} style={{ padding: "5px 10px", border: "1px solid #E2DDD4", borderRadius: 6, background: "#fff", color: "#0B1D3A", fontSize: 12, cursor: "pointer" }}>Edit</button>
-                          <button onClick={() => translateProduct(p)} disabled={translating === p.id}
-                            style={{ padding: "5px 10px", border: "none", borderRadius: 6, background: translating === p.id ? "#E2DDD4" : "#EEF2FF", color: "#4338CA", fontSize: 12, cursor: translating === p.id ? "not-allowed" : "pointer", whiteSpace: "nowrap" }}>
-                            {translating === p.id ? "Translating..." : p.name_ar ? "🔄 Re-translate" : "🌐 Translate AR"}
-                          </button>
-                          <button onClick={() => deleteProduct(p.id)} style={{ padding: "5px 10px", border: "none", borderRadius: 6, background: "#FEF2F2", color: "#991B1B", fontSize: 12, cursor: "pointer" }}>Delete</button>
+                        <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+                          <button onClick={() => openEdit(p)} style={{ padding: "5px 12px", border: "1px solid #E2DDD4", borderRadius: 6, background: "#fff", color: "#0B1D3A", fontSize: 12, cursor: "pointer" }}>Edit</button>
+                          <button onClick={() => deleteProduct(p.id)} style={{ padding: "5px 12px", border: "none", borderRadius: 6, background: "#FEF2F2", color: "#991B1B", fontSize: 12, cursor: "pointer" }}>Delete</button>
                         </div>
                       </td>
                     </tr>
                   ))}
                   {products.length === 0 && (
-                    <tr><td colSpan={6} style={{ padding: "2rem", textAlign: "center", color: "#6B7280" }}>No products yet.</td></tr>
+                    <tr><td colSpan={5} style={{ padding: "2rem", textAlign: "center", color: "#6B7280" }}>No products yet. Click "Add Product" to get started.</td></tr>
                   )}
                 </tbody>
               </table>
             </div>
           </>
         ) : (
+          /* Orders Table */
           <div style={{ background: "#fff", border: "1px solid #E2DDD4", borderRadius: 14, overflow: "hidden" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
               <thead>
@@ -236,12 +236,22 @@ export default function AdminPage() {
                     <td style={{ padding: "12px 16px", color: "#6B7280" }}>{o.payment_method}</td>
                     <td style={{ padding: "12px 16px", textAlign: "center", color: "#0B1D3A" }}>{o.quantity}</td>
                     <td style={{ padding: "12px 16px", textAlign: "center" }}>
-                      <span style={{ background: o.status === "confirmed" ? "#ECFDF5" : o.status === "pending" ? "#FFFBEB" : "#FEF2F2", color: o.status === "confirmed" ? "#065F46" : o.status === "pending" ? "#92400E" : "#991B1B", padding: "2px 10px", borderRadius: 20, fontSize: 12, fontWeight: 500 }}>{o.status}</span>
+                      <span style={{
+                        background: o.status === "confirmed" ? "#ECFDF5" : o.status === "pending" ? "#FFFBEB" : "#FEF2F2",
+                        color: o.status === "confirmed" ? "#065F46" : o.status === "pending" ? "#92400E" : "#991B1B",
+                        padding: "2px 10px", borderRadius: 20, fontSize: 12, fontWeight: 500
+                      }}>
+                        {o.status}
+                      </span>
                     </td>
-                    <td style={{ padding: "12px 16px", color: "#6B7280", fontSize: 12 }}>{new Date(o.created_at).toLocaleDateString()}</td>
+                    <td style={{ padding: "12px 16px", color: "#6B7280", fontSize: 12 }}>
+                      {new Date(o.created_at).toLocaleDateString()}
+                    </td>
                   </tr>
                 ))}
-                {orders.length === 0 && <tr><td colSpan={6} style={{ padding: "2rem", textAlign: "center", color: "#6B7280" }}>No orders yet.</td></tr>}
+                {orders.length === 0 && (
+                  <tr><td colSpan={6} style={{ padding: "2rem", textAlign: "center", color: "#6B7280" }}>No orders yet.</td></tr>
+                )}
               </tbody>
             </table>
           </div>

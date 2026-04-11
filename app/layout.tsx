@@ -1,25 +1,39 @@
-import type { Metadata } from "next"
-import { LangProvider } from "@/contexts/lang-context"
-import "./globals.css"
+import type { Metadata } from 'next'
+import { Playfair_Display, DM_Sans } from 'next/font/google'
+import { Analytics } from '@vercel/analytics/next'
+import { LangProvider } from '@/contexts/lang-context'
+import './globals.css'
+
+const playfair = Playfair_Display({ 
+  subsets: ["latin"],
+  variable: '--font-serif',
+  weight: ['400', '600'],
+});
+
+const dmSans = DM_Sans({ 
+  subsets: ["latin"],
+  variable: '--font-sans',
+  weight: ['300', '400', '500'],
+});
 
 export const metadata: Metadata = {
-  title: "Kush Shop | متجر كوش",
-  description: "Kush Educational Services Official Store | المتجر الرسمي لخدمات كوش التعليمية",
+  title: 'Shop — Kush Consultancy',
+  description: 'Browse our products, place your order, and complete payment via bank transfer. We verify and confirm within 24 hours.',
+  generator: 'v0.app',
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode
+}>) {
   return (
     <html lang="en">
-      <head>
-        <link
-          href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=DM+Sans:wght@300;400;500&display=swap"
-          rel="stylesheet"
-        />
-      </head>
-      <body style={{ fontFamily: "DM Sans, Cairo, sans-serif" }}>
+      <body className={`${playfair.variable} ${dmSans.variable} font-sans antialiased`}>
         <LangProvider>
           {children}
         </LangProvider>
+        {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
     </html>
   )

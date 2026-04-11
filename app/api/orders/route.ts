@@ -8,6 +8,7 @@ export async function GET() {
     `
     return NextResponse.json(orders)
   } catch (error) {
+    console.error("Error fetching orders:", error)
     return NextResponse.json({ error: "Failed to fetch orders" }, { status: 500 })
   }
 }
@@ -15,30 +16,29 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const {
-      full_name, email, phone, country,
-      product_name, quantity, payment_method,
-      delivery_address, notes
+    const { 
+      full_name, email, phone, country, city, 
+      product_name, quantity, payment_method, notes 
     } = body
-
+    
     if (!full_name || !email || !phone || !product_name) {
       return NextResponse.json({ error: "Required fields missing" }, { status: 400 })
     }
 
     const result = await sql`
       INSERT INTO orders (
-        full_name, email, phone, country,
-        product_name, quantity, payment_method,
-        delivery_address, notes, status
-      ) VALUES (
-        ${full_name}, ${email}, ${phone}, ${country},
-        ${product_name}, ${quantity}, ${payment_method},
-        ${delivery_address}, ${notes}, 'pending'
+        full_name, email, phone, country, city, 
+        product_name, quantity, payment_method, notes, status
+      )
+      VALUES (
+        ${full_name}, ${email}, ${phone}, ${country || ""}, ${city || ""}, 
+        ${product_name}, ${quantity || 1}, ${payment_method || ""}, ${notes || ""}, 'pending'
       )
       RETURNING *
     `
     return NextResponse.json(result[0], { status: 201 })
   } catch (error) {
+    console.error("Error creating order:", error)
     return NextResponse.json({ error: "Failed to create order" }, { status: 500 })
   }
 }
