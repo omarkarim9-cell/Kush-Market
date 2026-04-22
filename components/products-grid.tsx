@@ -8,13 +8,13 @@ import { t } from "@/lib/translations"
 interface Product {
   id: number
   name: string
+  name_ar?: string
   description: string
+  description_ar?: string
   price: number
   image_url: string
   category: string
   in_stock: boolean
-  name_ar?: string
-  description_ar?: string
 }
 
 interface ProductsGridProps {
@@ -22,55 +22,96 @@ interface ProductsGridProps {
 }
 
 export function ProductsGrid({ onSelectProduct }: ProductsGridProps) {
-  const { lang, isRTL } = useLang()
+  const { lang } = useLang()
   const tx = t[lang].products
+  const isAr = lang === "ar"
 
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState("")
-  const [activeCategory, setActiveCategory] = useState("all")
+  const [activeCategory, setActiveCategory] = useState("All")
+
+  // Track which products are currently being translated by the user
+  const [translatingId, setTranslatingId] = useState<number | null>(null)
+  // Track newly translated products so we can show the result without refetching the whole list
+  const [localTranslations, setLocalTranslations] = useState<Record<number, { name_ar: string; description_ar: string }>>({})
 
   useEffect(() => {
     fetch("/api/products")
-      .then((r) => r.json())
-      .then((data) => {
+      .then(r => r.json())
+      .then(data => {
         setProducts(Array.isArray(data) ? data : [])
         setLoading(false)
       })
       .catch(() => setLoading(false))
   }, [])
 
-  const categories = ["all", ...Array.from(new Set(products.map((p) => p.category).filter(Boolean)))]
+  const categories = ["All", ...Array.from(new Set(products.map(p => p.category).filter(Boolean)))]
 
-  const filtered = products.filter((p) => {
-    const name = lang === "ar" && p.name_ar ? p.name_ar : p.name
-    const desc = lang === "ar" && p.description_ar ? p.description_ar : p.description
+  const filtered = products.filter(p => {
+    // Search in both languages
+    const name = (isAr && (p.name_ar || localTranslations[p.id]?.name_ar)) || p.name
+    const desc = (isAr && (p.description_ar || localTranslations[p.id]?.description_ar)) || p.description
     const matchSearch =
       name.toLowerCase().includes(search.toLowerCase()) ||
-      desc?.toLowerCase().includes(search.toLowerCase())
-    const matchCategory = activeCategory === "all" || p.category === activeCategory
+      desc?.toLowerCase().includes(search.toLowerCase()) ||
+      p.name.toLowerCase().includes(search.toLowerCase())
+    const matchCategory = activeCategory === "All" || p.category === activeCategory
     return matchSearch && matchCategory && p.in_stock
   })
 
-  return (
-    <section id="products" className="py-16 bg-gray" dir={isRTL ? "rtl" : "ltr"}>
-      <SectionHeader title={tx.title} subtitle={tx.subtitle} />
+  // Called when an Arabic user clicks "Translate" on an untranslated product
+  async function handleUserTranslate(product: Product) {
+    setTranslatingId(product.id)
+    try {
+      const res = await fetch("/api/products/translate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: product.id, name: product.name, description: product.description }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        // Store translation locally so card updates immediately without full reload
+        if (data.name_ar) {
+          setLocalTranslations(prev => ({
+            ...prev,
+            [product.id]: { name_ar: data.name_ar, description_ar: data.description_ar || "" },
+          }))
+          // Also update the products list in-place
+          setProducts(prev => prev.map(p =>
+            p.id === product.id
+              ? { ...p, name_ar: data.name_ar, description_ar: data.description_ar }
+              : p
+          ))
+        }
+      }
+    } catch { /* silent fail — user can retry */ }
+    setTranslatingId(null)
+  }
 
-      {/* Search Bar */}
-      <div className="max-w-xl mx-auto px-6 mb-6">
+  return (
+    <section className="mb-14">
+      <SectionHeader
+        title={tx.title}
+        subtitle={tx.subtitle}
+      />
+
+      {/* Search */}
+      <div className="mb-4">
         <input
           type="text"
-          placeholder={tx.search}
+          placeholder={isAr ? "ابحث عن منتج..." : "Search products..."}
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={e => setSearch(e.target.value)}
           className="w-full px-4 py-2.5 border border-border rounded-lg text-sm bg-white outline-none focus:border-gold transition-colors"
+          dir={isAr ? "rtl" : "ltr"}
         />
       </div>
 
-      {/* Category Filter */}
+      {/* Category filter */}
       {categories.length > 1 && (
-        <div className="flex justify-center gap-2 px-6 mb-8 flex-wrap">
-          {categories.map((cat) => (
+        <div className="flex flex-wrap gap-2 mb-6">
+          {categories.map(cat => (
             <button
               key={cat}
               onClick={() => setActiveCategory(cat)}
@@ -81,80 +122,98 @@ export function ProductsGrid({ onSelectProduct }: ProductsGridProps) {
                 borderColor: activeCategory === cat ? "#0B1D3A" : "#E2DDD4",
               }}
             >
-              {cat === "all" ? tx.all : cat}
+              {cat}
             </button>
           ))}
         </div>
       )}
 
-      {/* Loading */}
       {loading && (
-        <p className="text-center text-muted-foreground py-12">{tx.loading}</p>
+        <div className="text-center py-12 text-muted-foreground text-sm">
+          {isAr ? "جاري التحميل..." : "Loading products..."}
+        </div>
       )}
 
-      {/* No results */}
       {!loading && filtered.length === 0 && (
-        <p className="text-center text-muted-foreground py-12">
-          {tx.noResults}{search ? ` "${search}"` : ""}
-        </p>
+        <div className="text-center py-12 text-muted-foreground text-sm">
+          {isAr ? "لا توجد منتجات" : `No products found${search ? ` for "${search}"` : ""}.`}
+        </div>
       )}
 
-      {/* Products Grid */}
-      <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {filtered.map((product) => {
-          const displayName = lang === "ar" && product.name_ar ? product.name_ar : product.name
-          const displayDesc = lang === "ar" && product.description_ar ? product.description_ar : product.description
+      {/* Grid */}
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-5">
+        {filtered.map(product => {
+          const local = localTranslations[product.id]
+          const displayName = isAr ? (product.name_ar || local?.name_ar || product.name) : product.name
+          const displayDesc = isAr ? (product.description_ar || local?.description_ar || product.description) : product.description
+          const isTranslated = !!(product.name_ar || local?.name_ar)
+          const isBeingTranslated = translatingId === product.id
 
           return (
             <div
               key={product.id}
-              className="bg-white rounded-xl border border-border overflow-hidden shadow-sm hover:shadow-md transition-shadow flex flex-col"
+              className="bg-white border border-border rounded-[14px] overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg"
+              dir={isAr ? "rtl" : "ltr"}
             >
-              {/* Product Image */}
+              {/* Image */}
               {product.image_url ? (
                 <img
                   src={product.image_url}
                   alt={displayName}
-                  className="w-full h-48 object-cover"
-                  onError={(e) => {
+                  className="w-full h-[180px] object-cover"
+                  onError={e => {
                     e.currentTarget.style.display = "none"
-                    const sibling = e.currentTarget.nextElementSibling as HTMLElement
-                    if (sibling) sibling.style.display = "flex"
+                    const next = e.currentTarget.nextElementSibling as HTMLElement
+                    if (next) next.style.display = "flex"
                   }}
                 />
               ) : null}
-
-              {/* Placeholder if no image */}
               <div
-                className="w-full h-48 bg-secondary items-center justify-center"
+                className="w-full h-[180px] bg-gradient-to-br from-gray to-[#D4CFC2] flex flex-col items-center justify-center gap-2"
                 style={{ display: product.image_url ? "none" : "flex" }}
               >
-                <svg className="w-12 h-12 text-muted-foreground/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="1.5">
+                  <rect x="3" y="3" width="18" height="18" rx="2" />
+                  <path d="M3 9h18M9 21V9" />
                 </svg>
-                <span className="sr-only">Product image</span>
+                <span className="text-xs text-muted-foreground">Product image</span>
               </div>
 
-              {/* Product Body */}
-              <div className="p-4 flex flex-col flex-1">
+              {/* Body */}
+              <div className="p-4">
                 {product.category && (
-                  <span className="text-xs text-muted-foreground uppercase tracking-wide mb-1">
+                  <div className="text-[11px] font-medium tracking-wide uppercase text-gold mb-1.5">
                     {product.category}
-                  </span>
+                  </div>
                 )}
-                <h3 className="font-semibold text-foreground mb-1">{displayName}</h3>
-                <p className="text-sm text-muted-foreground flex-1 line-clamp-2">
-                  {displayDesc}
-                </p>
-                <div className="flex items-center justify-between mt-4 pt-3 border-t border-border">
-                  <span className="text-lg font-bold text-navy">
-                    AED {product.price}
-                  </span>
+
+                <div className="text-[15px] font-medium text-navy mb-1">{displayName}</div>
+                <p className="text-[13px] text-muted-foreground mb-3.5 leading-relaxed">{displayDesc}</p>
+
+                {/* Translate button — only shown in Arabic mode when product has no Arabic */}
+                {isAr && !isTranslated && (
                   <button
-                    onClick={() => onSelectProduct(displayName, product.price)}
+                    onClick={() => handleUserTranslate(product)}
+                    disabled={isBeingTranslated}
+                    className="w-full mb-3 py-1.5 px-3 rounded-lg text-[12px] font-medium border transition-colors"
+                    style={{
+                      background: isBeingTranslated ? "#F4F1EB" : "#EEF2FF",
+                      color: "#4338CA",
+                      borderColor: "#C7D7FA",
+                      cursor: isBeingTranslated ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    {isBeingTranslated ? "جاري الترجمة..." : "🌐 ترجمة إلى العربية"}
+                  </button>
+                )}
+
+                <div className="flex items-center justify-between">
+                  <div className="text-lg font-medium text-navy">AED {product.price}</div>
+                  <button
+                    onClick={() => onSelectProduct(product.name, product.price)}
                     className="bg-navy text-gold2 px-4 py-2 rounded-lg text-[13px] font-medium transition-colors hover:bg-navy/90"
                   >
-                    {tx.orderNow}
+                    {tx.orderBtn}
                   </button>
                 </div>
               </div>
